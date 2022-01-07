@@ -1,0 +1,58 @@
+version: "3"
+services:
+  mysql:
+    image: mysql:5.7
+    platform: linuxx86_64 # NOTE: M1 Macだとこれ設定しないとちゃんと動かない
+    container_name: mysql
+    environment:
+      MYSQL_DATABASE: my_testdb
+      MYSQL_USER: test_user
+      MYSQL_PASSWORD: root
+      MYSQL_ROOT_PASSWORD: root
+      TZ: "Asia/Tokyo"
+    volumes:
+      - ./mysql/data:/var/lib/mysql
+      - ./mysql/my.cnf:/etc/mysql/conf.d/my.cnf
+      - ./mysql/init:/docker-entrypoint-initdb.d
+    ports:
+      - "3306:3306"
+    command: mysqld --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    networks:
+      - default # いらないかも
+  app:
+    image: node:16
+    build:
+      context: .
+      dockerfile: ./.docker/app/Dockerfile
+    container_name: app
+    environment:
+      MYSQL_SERVER: mysql
+      TZ: Asia/Tokyo
+      DEBUG: app:*
+    tty: true
+    ports:
+      - "4000:4000"
+    volumes:
+      - .:/app
+      # - node_modules:/app/node_modules # https://blog.taross-f.dev/npm-install-with-docker/
+    working_dir: /app
+    command: yarn start
+    networks:
+      - default
+    depends_on:
+      - mysql
+  phpmyadmin:
+    container_name: phpmyadmin
+    image: phpmyadmin/phpmyadmin
+    environment:
+      PMA_ARBITRARY: 1
+      PMA_HOST: mysql
+      PMA_USER: root
+      PMA_PASSWORD: root
+    ports:
+      - 9090:80
+networks:
+  default:
+# コンテナが削除されてもデータが消えずに保持される
+volumes:
+  mysqldata:
